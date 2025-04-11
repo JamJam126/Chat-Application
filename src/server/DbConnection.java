@@ -11,6 +11,7 @@ import java.util.Map;
 import utils.Message;
 import utils.User;
 import utils.Contact;
+import utils.ImageMessage;
 
 
 public class DbConnection {
@@ -97,12 +98,31 @@ public class DbConnection {
 										+ "sender_id INT NOT NULL, "
 										+ "receiver_id INT NOT NULL, "
 										+ "message_text TEXT, "
+										+ "image_id INT, "
 										+ "sent_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP, "
 										+ "FOREIGN KEY (sender_id) REFERENCES users(id),"
-										+ "FOREIGN KEY (receiver_id) REFERENCES users(id))";
+										+ "FOREIGN KEY (receiver_id) REFERENCES users(id), "
+										+ "FOREIGN KEY (image_id) REFERENCES images(id)"
+										+ ")";
 				
             	stmt.execute(createTableQuery);
 				System.out.println("Created 'messages' table.");
+            }
+            
+            checkTableQuery = "SHOW TABLES LIKE 'images'";
+            rs = stmt.executeQuery(checkTableQuery);
+            
+            if (!rs.next()) {
+            	
+            	String createTableQuery = "CREATE TABLE images ("
+            							+ "id INT AUTO_INCREMENT PRIMARY KEY, "
+            							+ "image_name VARCHAR(255), "
+            							+ "image_size INT, "
+            							+ "image_data BLOB"
+            							+ ")";
+            	
+            	stmt.execute(createTableQuery);
+            	System.out.println("Created 'images' table.");
             }
     
             conn.close();
@@ -162,50 +182,70 @@ public class DbConnection {
     }
     
     public List<Message> private_chat(int sender, int receiver) {
-
-        List <Message> messageList = new ArrayList<>();
-        Message message;
-        
-        try {
+        List<Message> messageList = new ArrayList<>();
         	
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            Connection conn = DriverManager.getConnection(url + "chat", dbusername, dbPassword);
-            Statement stmt = conn.createStatement();
-            
-            ResultSet rs ;
+        String query = "SELECT m.id as 'Id', s.username as 'Sender', r.username as 'Receiver', m.message_text as 'Message', m.sent_time, m.image_id as 'Image' "
+                     + "FROM messages m "
+                     + "JOIN users s ON m.sender_id = s.id "
+                     + "JOIN users r ON m.receiver_id = r.id "
+                     + "WHERE (m.sender_id = ? AND m.receiver_id = ?) "
+                     + "OR (m.sender_id = ? AND m.receiver_id = ?) "
+                     + "ORDER BY m.sent_time ASC";
 
-            String query = "SELECT s.username as 'Sender', r.username as 'Receiver', m.message_text as 'Message', m.sent_time "
-            			 + "FROM messages m "
-            			 + "JOIN users s ON m.sender_id = s.id "
-            			 + "JOIN users r ON m.receiver_id = r.id "
-            			 + "WHERE (sender_id = " + sender + " "
-            			 + "AND receiver_id = " + receiver + ") "
-            			 + "OR (sender_id = " + receiver + " "
-            			 + "AND receiver_id = " + sender + ") ORDER BY m.id";
+        String imageQuery = "SELECT i.image_name AS 'Name', i.image_size AS 'Size', i.image_data AS 'Data' "
+                          + "FROM images i WHERE i.id = ?";
+
+        try (
+        	Connection conn = DriverManager.getConnection(url + "chat", dbusername, dbPassword);
+        	PreparedStatement stmt = conn.prepareStatement(query);
+            PreparedStatement imgStmt = conn.prepareStatement(imageQuery);
             
-            rs = stmt.executeQuery(query);
+        ) {
             
-            while (rs.next()) {
-            	
-            	String s = rs.getString("Sender");
-            	String r = rs.getString("Receiver");
+            stmt.setInt(1, sender);
+            stmt.setInt(2, receiver);
+            stmt.setInt(3, receiver);
+            stmt.setInt(4, sender);
+
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) 
+            {
+            	int mi = rs.getInt("Id");
+                String s = rs.getString("Sender");
+                String r = rs.getString("Receiver");
                 String m = rs.getString("Message");
+                int i = rs.getInt("Image");
                 Timestamp timestamp = rs.getTimestamp("sent_time");
-                
-                message = new Message(s, r, m, timestamp);
+
+                Message message = new Message(s, r, m, timestamp);
+                message.setId(mi);
+                if (i != 0) 
+                {
+                    imgStmt.setInt(1, i);
+                    
+                    try (ResultSet imgRs = imgStmt.executeQuery()) {
+                        
+                    	if (imgRs.next()) 
+                        {
+                            String name = imgRs.getString("Name");
+                            int size = imgRs.getInt("Size");
+                            byte[] data = imgRs.getBytes("Data");
+
+                            ImageMessage iMsg = new ImageMessage(name, size, data);
+                            message.setImgMsg(iMsg);
+                        }
+                    }
+                }
                 messageList.add(message);
-                
             }
-            
-            conn.close();
-            
-        } catch(SQLException | ClassNotFoundException e) {
-        	
+
+        } catch (SQLException e) {
             e.printStackTrace();
         }
-        
+
         return messageList;
     }
+
 
     public List<Contact> getAllContact(int sender){
         List <Contact> contactList = new ArrayList<>();
@@ -265,6 +305,8 @@ public class DbConnection {
                         String message = rs.getString("last_message");
                         boolean isSender = rs.getBoolean("sender_is_last");
                         Timestamp sendTime = rs.getTimestamp("last_sent_time");
+                        
+                        if (message == null) message = "Image";
             
                         contactList.add(new Contact(contact, message, isSender, sendTime));
                             
@@ -281,27 +323,59 @@ public class DbConnection {
 
     }
     
-    public void save_message(int senderId, int receiverId, String message) {
+    public int save_message(int senderId, int receiverId, Message message) {
     	
+        int messageId = -1;
         try {
-
+        	
             Class.forName("com.mysql.cj.jdbc.Driver");
             
             Connection conn = DriverManager.getConnection(url + "chat", dbusername, dbPassword);
             
-            String query = "INSERT INTO messages (sender_id, receiver_id, message_text, sent_time) VALUES (?, ?, ?, CURRENT_TIMESTAMP)";
-            PreparedStatement stmt = conn.prepareStatement(query);
+            int imageId = -1;
+            
+            if (message.getImgMsg() != null) {
+            	String query = "INSERT INTO images (image_name, image_size, image_data) VALUES (?, ?, ?)";
+            	PreparedStatement stmt = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);
+            	stmt.setString(1, message.getImgMsg().getName());
+            	stmt.setInt(2, message.getImgMsg().getSize());
+            	stmt.setBytes(3, message.getImgMsg().getImageData());
+            	
+            	int rowAffected = stmt.executeUpdate();
+            	
+            	if (rowAffected > 0) 
+            	{	
+            		ResultSet rs = stmt.getGeneratedKeys();
+            		if (rs.next()) imageId = rs.getInt(1);
+            		rs.close();
+            	}
+            }
+            
+            String query = "INSERT INTO messages (sender_id, receiver_id, message_text, image_id, sent_time) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)";
+            PreparedStatement stmt = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);
             
             stmt.setInt(1, senderId);
             stmt.setInt(2, receiverId);
-            stmt.setString(3, message);
-
-            stmt.executeUpdate();
+            stmt.setString(3, message.getContent());
+            if (imageId > 0) stmt.setInt(4, imageId);
+            else stmt.setNull(4, java.sql.Types.INTEGER);
+            
+            int rowAffected = stmt.executeUpdate();
+            
+            if (rowAffected > 0)
+            {
+            	ResultSet rs = stmt.getGeneratedKeys();
+            	if (rs.next()) messageId = rs.getInt(1);
+            	rs.close();
+            }
             conn.close();
+            stmt.close();
  
         } catch(ClassNotFoundException | SQLException e) {
             e.printStackTrace();
         }
+        
+        return messageId;
     }
     
     public boolean check_user(String email, String username){

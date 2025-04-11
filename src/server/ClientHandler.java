@@ -1,9 +1,11 @@
 package server;
 
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.util.Base64;
 import java.util.List;
 
 import utils.ChatHistory;
@@ -16,6 +18,7 @@ import utils.UserObjectInputStream;
 import utils.NewUser;
 import utils.Contact;
 import utils.ContactList;
+import utils.ImageMessage;
 
 // HOURS WASTED: 7
 
@@ -170,11 +173,21 @@ public class ClientHandler extends Thread implements Connection {
 				if (receivedObject instanceof Message) {
 	            
 					message = (Message) receivedObject;
-	            
-					if (message.getReceiver() == "") cManager.broadcastMessages(message, this);
-					else cManager.sendPrivateMessage(message, this.user.getUserId(), receiverId);
 					
-	            
+					boolean hasContent = message.getContent() != null;
+				    boolean hasImage = message.getImgMsg() != null;
+				    boolean hasSender = message.getSender() != null;
+				    boolean hasReceiver = message.getReceiver() != null;
+
+				    if ((hasContent || hasImage) && hasSender && hasReceiver) 
+				        cManager.sendPrivateMessage(message, this.user.getUserId(), receiverId);
+				    
+				    else if ((hasContent || hasImage) && !hasSender && !hasReceiver) 
+				        System.out.println("Update message");
+				    
+				    else if ((!hasContent || !hasImage) && !hasSender && !hasReceiver) 
+				        System.out.println("Delete message");
+				    
 					System.out.println(message.getSender() + " to " + message.getReceiver() + ": " + message.getContent());
 	          
 				}
@@ -219,11 +232,8 @@ public class ClientHandler extends Thread implements Connection {
 							
 						cManager.addClientChatSession(openChatReq.getUser().getUserId(), receiverId);
 					}
-					
-				
-//					System.out.println("HIII!!!");
-//					System.out.println(openChatReq.getReceiver());
 				}
+				
 			}
 
 		} catch (IOException | ClassNotFoundException e) {

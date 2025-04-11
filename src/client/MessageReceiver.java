@@ -47,23 +47,35 @@ public class MessageReceiver implements Runnable {
 				if (receivedObject instanceof Message) {
 
 					message = (Message) receivedObject;
-					boolean hasContact = false;
-										
-					for (int i = 0; i < cConnection.contactsList.size(); i++) 
+					
+					if (message.getSender().equals(cConnection.user.getUsername()) 
+						&& message.getReceiver().equals(cConnection.receiver)) 
 					{
-						if (message.getSender().equals(cConnection.contactsList.get(i).getContact())) 
-						{
-							hasContact = true;
-							cConnection.updateContactList(i, new Contact(message.getSender(), message.getContent()));
-						}
+						System.out.println(message.getContent());
+						System.out.println(message.getId());
+						System.out.println(message.tempId);
+						
+						System.out.println(cConnection.messageList.get(message.tempId).getContent());
 					}
 					
-					System.out.println("Sender: " + message.getSender() + ", Receiver: " + message.getReceiver() + ", Content: " + message.getContent());
-					
-					if (!hasContact) cConnection.addContact(new Contact(message.getSender(), message.getContent()));
-					
-					if (cConnection.receiver.equals(message.getSender())) cConnection.addMessage(message);
-					
+					else {
+						boolean hasContact = false;
+											
+						for (int i = 0; i < cConnection.contactsList.size(); i++) 
+						{
+							if (message.getSender().equals(cConnection.contactsList.get(i).getContact())) 
+							{
+								hasContact = true;
+								cConnection.updateContactList(i, new Contact(message.getSender(), message.getContent()));
+							}
+						}
+						
+						System.out.println("Sender: " + message.getSender() + ", Receiver: " + message.getReceiver() + ", Content: " + message.getContent());
+						
+						if (!hasContact) cConnection.addContact(new Contact(message.getSender(), message.getContent()));
+						
+						if (cConnection.receiver.equals(message.getSender())) cConnection.addMessage(message);
+					}
 				}
 
 				if (receivedObject instanceof ContactList){
@@ -83,6 +95,8 @@ public class MessageReceiver implements Runnable {
 
 				if (receivedObject instanceof ChatHistory) {
 					
+					cConnection.messageSize = 0;
+					
 					cHistory = (ChatHistory) receivedObject;
 					List<Message> oldMessages = cHistory.getMessages();		
 					ObservableList<Message> chatList = FXCollections.observableArrayList();
@@ -96,11 +110,12 @@ public class MessageReceiver implements Runnable {
 	                    if (!currentDateString.equals(currentDate)) {
 	                    	
 	                    	chatList.add(new Message(null, null, null, timestamp));
+	                    	cConnection.messageSize ++;
 	                    	currentDate = currentDateString;
 	                    }
 	                    
 	                    chatList.add(msg);
-	                    
+	                    cConnection.messageSize ++;
 					}
 					
 					cConnection.addMessageHistory(chatList);

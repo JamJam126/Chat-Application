@@ -62,12 +62,19 @@ public class ClientManager {
 	public void sendPrivateMessage(Message message, int senderId, int receiverId) {
 		
 		try {
+
+			int messageId = db.save_message(senderId, receiverId, message);
+			message.setId(messageId);
+			clientSockets.get(senderId).sendMessage(message, clientSockets.get(senderId).oos);
 			
-//			clientSockets.get(receiverId).sendMessage(message, clientSockets.get(receiverId).oos);				
-			if (isReceiverLoggedIn(receiverId)) 
+			if (isReceiverLoggedIn(receiverId)) {
+				
+				message.tempId = 0;
 				clientSockets.get(receiverId).sendMessage(message, clientSockets.get(receiverId).oos);
+			}
 			
-//			db.save_message(senderId, receiverId, message.getContent());
+			
+			
 		} catch (IOException | NullPointerException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();

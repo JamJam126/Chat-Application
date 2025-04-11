@@ -16,7 +16,7 @@ import utils.NewUser;
 
 public class ChatClient extends Application {
 
-	static String SERVER_ADDRESS = "172.23.2.161";
+	static String SERVER_ADDRESS = "172.23.0.149";
 
 	static int SERVER_PORT = 3001;
 	static boolean isAuthenticated = false;
@@ -35,8 +35,8 @@ public class ChatClient extends Application {
 		loginButton.setStyle("-fx-background-color: #008CBA; -fx-text-fill: white; -fx-font-size: 14px;");
         registerButton.setStyle("-fx-background-color: #008CBA; -fx-text-fill: white; -fx-font-size: 14px;");
 
-		loginButton.setOnAction(e -> login_page(primaryStage,cc));
-		registerButton.setOnAction(e -> Register_page(primaryStage,cc));
+		loginButton.setOnAction(e -> login_page(primaryStage, cc));
+		registerButton.setOnAction(e -> Register_page(primaryStage, cc));
 
 		loginButton.setPrefWidth(150);
         registerButton.setPrefWidth(150);
@@ -92,8 +92,8 @@ public class ChatClient extends Application {
 			String password = passwordField.getText();
 			try {
 //				validate(username, password);
-//				User user = new User(username, password);
-				 User user = new User("Jam", "12345678");
+				User user = new User(username, password);
+//				 User user = new User("Jam", "12345678");
 				cc.authenticate(user);
 				if(!isAuthenticated) {
 					statusLabel.setText("Login failed. Try again.");
