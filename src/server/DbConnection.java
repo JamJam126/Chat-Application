@@ -12,13 +12,14 @@ import utils.Message;
 import utils.User;
 import utils.Contact;
 import utils.ImageMessage;
-
+import utils.EnvLoader;
 
 public class DbConnection {
-
-    private String url = "jdbc:mysql://localhost:3306/";
-    private String dbusername = "root";
-    private String dbPassword = getDbPassword();
+    Map<String, String> env;
+    private String url;
+    private String dbusername;
+    private String dbPassword;
+    private String dbName;
     ClientHandler cHandler;
 
     private String username;
@@ -26,114 +27,99 @@ public class DbConnection {
     private String dob;
     private String email;
     
-    private String getDbPassword() {
-//    	System.out.println(System.getProperty("user.dir"));
-
-    	String readPassword = "";
-    	
-    	  try (BufferedReader br = new BufferedReader(new FileReader("info.txt"))) {
-    		
-              readPassword = br.readLine();
-            
-          } catch (IOException e) {
-        	
-              e.printStackTrace();  
-          }
-    	
-    	return readPassword;
-    }
-  
-    
     public DbConnection() {
+        env = EnvLoader.load();
+
+        String host = env.get("DB_HOST");
+        String port = env.get("DB_PORT");
+
+        dbName = env.get("DB_NAME");
+        dbusername = env.get("DB_USER");
+        dbPassword = env.get("DB_PASSWORD");
+
+        url = "jdbc:mysql://" + host + ":" + port + "/";
+
         initializeDatabase();
-    } 
+    }
     
     public DbConnection(ClientHandler cHandler) {
+    	this();
     	this.cHandler = cHandler;
-    	initializeDatabase();
     }
     
     public void initializeDatabase() {
-        try {
-            Class.forName("com.mysql.cj.jdbc.Driver"); //
-            Connection conn = DriverManager.getConnection(url, dbusername, dbPassword);
-            Statement stmt = conn.createStatement();
-    
-            // Check if the chat database exists
-            String checkDbQuery = "SHOW DATABASES LIKE 'chat'";
-            ResultSet rs = stmt.executeQuery(checkDbQuery);
-            
-            if (!rs.next()) {
-                String createDbQuery = "CREATE DATABASE chat";
-                stmt.executeUpdate(createDbQuery);
-                System.out.println("Database 'chat' created.");
-            }
-    
-            conn.close();
-            
-            conn = DriverManager.getConnection(url + "chat", dbusername, dbPassword);
-            stmt = conn.createStatement();
-    
-            String checkTableQuery = "SHOW TABLES LIKE 'users'";
-            rs = stmt.executeQuery(checkTableQuery);
-    
-            if (!rs.next()) {
-                String createTableQuery = "CREATE TABLE users ("
-                						+ "id INT AUTO_INCREMENT PRIMARY KEY, " 
-                                        + "username VARCHAR(255) UNIQUE, " 
-                                        + "email VARCHAR(255) NOT NULL UNIQUE, "
-                                        + "dob DATE NOT NULL, "
-                                        + "password VARCHAR(255) NOT NULL)";
-                stmt.execute(createTableQuery);
-                System.out.println("Created 'users' table.");
-            }
-            
-            checkTableQuery = "SHOW TABLES LIKE 'messages'";
-            rs = stmt.executeQuery(checkTableQuery);
-            
-            if (!rs.next()) {
-            	
-            	String createTableQuery = "CREATE TABLE messages (" 
-										+ "id INT AUTO_INCREMENT PRIMARY KEY, " 
-										+ "sender_id INT NOT NULL, "
-										+ "receiver_id INT NOT NULL, "
-										+ "message_text TEXT, "
-										+ "image_id INT, "
-										+ "sent_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP, "
-										+ "FOREIGN KEY (sender_id) REFERENCES users(id),"
-										+ "FOREIGN KEY (receiver_id) REFERENCES users(id), "
-										+ "FOREIGN KEY (image_id) REFERENCES images(id)"
-										+ ")";
-				
-            	stmt.execute(createTableQuery);
-				System.out.println("Created 'messages' table.");
-            }
-            
-            checkTableQuery = "SHOW TABLES LIKE 'images'";
-            rs = stmt.executeQuery(checkTableQuery);
-            
-            if (!rs.next()) {
-            	
-            	String createTableQuery = "CREATE TABLE images ("
-            							+ "id INT AUTO_INCREMENT PRIMARY KEY, "
-            							+ "image_name VARCHAR(255), "
-            							+ "image_size INT, "
-            							+ "image_data BLOB"
-            							+ ")";
-            	
-            	stmt.execute(createTableQuery);
-            	System.out.println("Created 'images' table.");
-            }
-    
-            conn.close();
-        } catch (ClassNotFoundException | SQLException e ) {
-        	
-            
-        } finally {
-        	
-        }
-    }   
-    
+	    try {
+	        Class.forName("com.mysql.cj.jdbc.Driver");
+
+	        try (Connection conn = DriverManager.getConnection(url, dbusername, dbPassword);
+	             Statement stmt = conn.createStatement()) {
+
+	            try (ResultSet rs = stmt.executeQuery("SHOW DATABASES LIKE '" + dbName + "'")) {
+	                if (!rs.next()) {
+	                    stmt.executeUpdate("CREATE DATABASE " + dbName);
+	                    System.out.println("Database '"+ dbName + "' created.");
+	                }
+	            }
+	        }
+	
+	        try (Connection conn = DriverManager.getConnection(url + dbName, dbusername, dbPassword)) {
+
+	            try (Statement stmt = conn.createStatement();
+	                 ResultSet rs = stmt.executeQuery("SHOW TABLES LIKE 'users'")) {
+	                if (!rs.next()) {
+	                    String createUsers = "CREATE TABLE users ("
+	                            + "id INT AUTO_INCREMENT PRIMARY KEY, "
+	                            + "username VARCHAR(255) UNIQUE, "
+	                            + "email VARCHAR(255) NOT NULL UNIQUE, "
+	                            + "dob DATE NOT NULL, "
+	                            + "password VARCHAR(255) NOT NULL)";
+	                    stmt.execute(createUsers);
+	                    System.out.println("Created 'users' table.");
+	                }
+	            }
+	
+	            try (Statement stmt = conn.createStatement();
+	                 ResultSet rs = stmt.executeQuery("SHOW TABLES LIKE 'images'")) {
+	                if (!rs.next()) {
+	                    String createImages = "CREATE TABLE images ("
+	                            + "id INT AUTO_INCREMENT PRIMARY KEY, "
+	                            + "image_name VARCHAR(255), "
+	                            + "image_size INT, "
+	                            + "image_data BLOB)";
+	                    stmt.execute(createImages);
+	                    System.out.println("Created 'images' table.");
+	                }
+	            }
+	
+	            try (Statement stmt = conn.createStatement();
+	                 ResultSet rs = stmt.executeQuery("SHOW TABLES LIKE 'messages'")) {
+	                if (!rs.next()) {
+	                    String createMessages = "CREATE TABLE messages ("
+	                            + "id INT AUTO_INCREMENT PRIMARY KEY, "
+	                            + "sender_id INT NOT NULL, "
+	                            + "receiver_id INT NOT NULL, "
+	                            + "message_text TEXT, "
+	                            + "image_id INT, "
+	                            + "sent_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP, "
+	                            + "FOREIGN KEY (sender_id) REFERENCES users(id), "
+	                            + "FOREIGN KEY (receiver_id) REFERENCES users(id), "
+	                            + "FOREIGN KEY (image_id) REFERENCES images(id))";
+	                    stmt.execute(createMessages);
+	                    System.out.println("Created 'messages' table.");
+	                }
+	            }
+	
+	        }
+	
+	    } catch (ClassNotFoundException e) {
+	        System.err.println("MySQL JDBC Driver not found.");
+	        e.printStackTrace();
+	    } catch (SQLException e) {
+	        System.err.println("Database error:");
+	        e.printStackTrace();
+	    }
+	}
+
     public void check_login(String InputName,String InputPassword) {
     	
         try {

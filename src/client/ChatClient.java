@@ -3,6 +3,7 @@ package client;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Map;
 
 import javafx.application.Application;
 import javafx.scene.Scene;
@@ -11,18 +12,21 @@ import javafx.scene.layout.*;
 import javafx.stage.Stage;
 import javafx.geometry.Pos;
 import utils.User;
+import utils.EnvLoader;
 import utils.InvalidCredentialException;
 import utils.NewUser;
 
 public class ChatClient extends Application {
 
-	static String SERVER_ADDRESS = "172.23.0.149";
-
-	static int SERVER_PORT = 3001;
+	static String SERVER_ADDRESS;
+	static int SERVER_PORT;
 	static boolean isAuthenticated = false;
 
 	@Override
 	public void start(Stage primaryStage) throws IOException, ClassNotFoundException {
+		Map<String, String> env = EnvLoader.load();
+	    SERVER_ADDRESS = env.get("SERVER_ADDRESS");
+	    SERVER_PORT = Integer.parseInt(env.get("SERVER_PORT"));
 		
 		ClientConnection cc = new ClientConnection(SERVER_ADDRESS, SERVER_PORT, primaryStage);
 		
