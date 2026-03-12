@@ -83,8 +83,8 @@ java -cp "bin;lib/mysql-connector-j-9.2.0.jar" server.ChatServer
 ## Compile & Run Frontend
 ```bash
 # Compile all JavaFX sources
-javac --module-path "lib" --add-modules javafx.controls,javafx.fxml -d bin src/**/*.java
+javac --module-path "lib" --add-modules javafx.controls,javafx.fxml -d bin src\client\*.java src\utils\*.java src\gui\*.java
 
 # Run the client
-java --module-path "lib" --add-modules javafx.controls,javafx.fxml -cp "bin" client.ChatClient
+java --module-path "lib/javafx/lib" --add-modules javafx.controls,javafx.fxml -Dprism.order=sw -Dprism.forceGPU=false -cp bin client.ChatClien
 ```
