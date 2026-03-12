@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import utils.Message;
+import utils.Contact;
 
 public class ClientManager {
 	
@@ -51,17 +52,28 @@ public class ClientManager {
 		
 		return messageHistory;
 	}
+
+	public List<Contact> getContactAlls(int senderId) {
+		
+        return db.getAllContact(senderId);
+
+	}
 	
 	public void sendPrivateMessage(Message message, int senderId, int receiverId) {
 		
 		try {
-		
-			clientSockets.get(senderId).sendMessage(message, clientSockets.get(senderId).oos);	
+
+			int messageId = db.save_message(senderId, receiverId, message);
+			message.setId(messageId);
+			clientSockets.get(senderId).sendMessage(message, clientSockets.get(senderId).oos);
 			
-			if (isReceiverChatSessionOpen(senderId, receiverId)) 
+			if (isReceiverLoggedIn(receiverId)) {
+				
+				message.tempId = 0;
 				clientSockets.get(receiverId).sendMessage(message, clientSockets.get(receiverId).oos);
+			}
 			
-			db.save_message(senderId, receiverId, message.getContent());
+			
 			
 		} catch (IOException | NullPointerException e) {
 			// TODO Auto-generated catch block
@@ -71,14 +83,27 @@ public class ClientManager {
 
 	}
 	
+	
 	public boolean isReceiverChatSessionOpen(int sender, int receiver) {
 		
 		Integer session = chatSessions.get(receiver);
 	    return clientSockets.containsKey(receiver) && session != null && session == sender;
 	}
+
+	public boolean isReceiverLoggedIn(int receiver) {
+		
+
+	    return clientSockets.containsKey(receiver);
+	}
+	
 	
 	public boolean isReceiverExist(String receiver) {
 
+		
+		if (db.findReceiver(receiver)) System.out.println("User Exist: " + receiver);
+
+		else System.out.println("User doesnot exist: " + receiver);
+		
 		return db.findReceiver(receiver);
 	}
 
