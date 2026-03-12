@@ -257,6 +257,7 @@ public class ClientConnection implements Connection {
 	    		        Message message = new Message(user.getUsername(), receiver, null, new Timestamp(System.currentTimeMillis()));
 	    		        message.setImgMsg(imageMessage);
 						sendMessage(message, oos);
+						addMessage(message);
 					} catch (IOException e1) {
 						// TODO Auto-generated catch block
 						e1.printStackTrace();
@@ -312,9 +313,13 @@ public class ClientConnection implements Connection {
             String content = messageField.getText();
             if (!content.isEmpty()) {
                 Message message = new Message(user.getUsername(), receiver, content, new Timestamp(System.currentTimeMillis()));
-                message.setId(69);
-                addMessage(message);
 //                    sendMessage(message, oos);
+            	try {
+    				sendMessage(message, oos);
+    			} catch (IOException ex) {	
+    				ex.printStackTrace();
+    			}
+                addMessage(message);
 	            messageField.clear();
 
             }
@@ -375,11 +380,6 @@ public class ClientConnection implements Connection {
         Platform.runLater(() -> {
         	this.messageList.add(message);
         	message.tempId = messageSize;
-        	try {
-				sendMessage(message, oos);
-			} catch (IOException e) {	
-				e.printStackTrace();
-			}
             messageSize++;
         });
     }

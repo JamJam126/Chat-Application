@@ -99,7 +99,7 @@ public class ChatMessageCell extends ListCell<Message> {
         }
 
         else {
-            Text chatText = new Text(msg.getContent() + ", " + msg.getId());
+            Text chatText = new Text(msg.getContent());
             chatText.setFont(Font.font("Arial", FontWeight.NORMAL, 14));
             if (chatText.getText().length() > 41) chatText.setWrappingWidth(400);
 
